@@ -11,7 +11,15 @@
       "type": "string",
       "enum": ["allow", "deny", "redact"]
     },
-    "reason_code": { "type": "string", "minLength": 1 },
-    "denied_reason": { "type": ["string", "null"] }
+    "reason_code": {
+      "type": "string",
+      "enum": [
+        "allowed",
+        "access_denied",
+        "consent_not_allowed",
+        "unknown_reference",
+        "policy_error"
+      ]
+    }
   }
 }

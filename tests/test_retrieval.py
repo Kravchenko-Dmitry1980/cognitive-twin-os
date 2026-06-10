@@ -1,18 +1,17 @@
-"""Tests for structured episode retrieval."""
+"""Tests for internal structured candidate selection (not release-facing API)."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
 
 from cognitive_twin.episodes import MemoryState
-from cognitive_twin.retrieval import RetrievalFilter, StructuredEpisodeRetriever
-from cognitive_twin.store import InMemoryEventStore
-from cognitive_twin.trace_store import JsonlTraceStore
-from cognitive_twin.traces import TraceStatus
+from cognitive_twin.retrieval import RetrievalFilter, filter_episodes
 from conftest import make_episode, make_event
 
 
-def _populated_store() -> InMemoryEventStore:
+def _populated_store():
+    from cognitive_twin.store import InMemoryEventStore
+
     store = InMemoryEventStore()
     store.append_event(make_event("evt_1"))
     store.append_event(make_event("evt_2", payload={"text": "two"}))
@@ -46,70 +45,35 @@ def _populated_store() -> InMemoryEventStore:
     return store
 
 
-def test_retrieval_by_memory_state() -> None:
+def _episode_ids(store, filters: RetrievalFilter) -> list[str]:
+    return [episode.episode_id for episode in filter_episodes(store, filters)]
+
+
+def test_filter_by_memory_state() -> None:
     store = _populated_store()
-    result = StructuredEpisodeRetriever().retrieve(
-        "req_ms",
-        store,
-        RetrievalFilter(memory_state=MemoryState.CURATED),
-    )
-    assert result.episode_ids == ["ep_curated"]
+    assert _episode_ids(store, RetrievalFilter(memory_state=MemoryState.CURATED)) == [
+        "ep_curated"
+    ]
 
 
-def test_retrieval_by_salience() -> None:
+def test_filter_by_salience() -> None:
     store = _populated_store()
-    result = StructuredEpisodeRetriever().retrieve(
-        "req_sal",
-        store,
-        RetrievalFilter(min_salience=0.8),
-    )
-    assert result.episode_ids == ["ep_curated"]
+    assert _episode_ids(store, RetrievalFilter(min_salience=0.8)) == ["ep_curated"]
 
 
-def test_retrieval_by_entity() -> None:
+def test_filter_by_entity() -> None:
     store = _populated_store()
-    result = StructuredEpisodeRetriever().retrieve(
-        "req_ent",
-        store,
-        RetrievalFilter(entity="alice"),
-    )
-    assert result.episode_ids == ["ep_raw"]
+    assert _episode_ids(store, RetrievalFilter(entity="alice")) == ["ep_raw"]
 
 
-def test_retrieval_by_goal() -> None:
+def test_filter_by_goal() -> None:
     store = _populated_store()
-    result = StructuredEpisodeRetriever().retrieve(
-        "req_goal",
-        store,
-        RetrievalFilter(goal="review"),
-    )
-    assert result.episode_ids == ["ep_curated"]
+    assert _episode_ids(store, RetrievalFilter(goal="review")) == ["ep_curated"]
 
 
-def test_retrieval_by_time_range() -> None:
+def test_filter_by_time_range() -> None:
     store = _populated_store()
-    result = StructuredEpisodeRetriever().retrieve(
-        "req_time",
+    assert _episode_ids(
         store,
-        RetrievalFilter(
-            created_after=datetime(2026, 6, 9, 13, 0, 0, tzinfo=UTC),
-        ),
-    )
-    assert result.episode_ids == ["ep_curated"]
-
-
-def test_retrieval_writes_trace(tmp_path) -> None:
-    store = _populated_store()
-    trace_store = JsonlTraceStore(tmp_path / "traces.jsonl")
-    StructuredEpisodeRetriever().retrieve(
-        "req_trace",
-        store,
-        RetrievalFilter(episode_type="conversation"),
-        trace_store=trace_store,
-        actor_id="actor_retriever",
-    )
-    traces = trace_store.list_traces()
-    assert len(traces) == 1
-    assert traces[0].operation == "retrieve_episodes"
-    assert traces[0].status == TraceStatus.SUCCEEDED
-    assert traces[0].metadata["match_count"] == 1
+        RetrievalFilter(created_after=datetime(2026, 6, 9, 13, 0, 0, tzinfo=UTC)),
+    ) == ["ep_curated"]

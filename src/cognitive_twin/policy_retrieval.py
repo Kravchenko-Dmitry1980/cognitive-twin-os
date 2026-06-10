@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from cognitive_twin.episodes import Episode
 from cognitive_twin.errors import InvalidRetrievalRequestError
 from cognitive_twin.operation_trace import TraceWriter, record_operation
@@ -11,17 +13,57 @@ from cognitive_twin.policy_engine import (
     PolicyDecisionValue,
     PolicyEvaluationContext,
     PolicyGate,
+    PolicyReasonCode,
 )
 from cognitive_twin.retrieval import (
     MAX_RETRIEVAL_LIMIT,
+    RetrievalFilter,
     RetrievalItem,
     RetrievalRequest,
     RetrievalResponse,
-    StructuredEpisodeRetriever,
     filter_episodes,
 )
 from cognitive_twin.store import EventEpisodeRepository
 from cognitive_twin.traces import TraceStatus
+
+OPERATION_VERSION = "0.1.4"
+
+
+def _filter_keys(filters: RetrievalFilter) -> list[str]:
+    return sorted(filters.model_dump(mode="json", exclude_none=True).keys())
+
+
+def _policy_decision_counts(
+    evaluations: list[EpisodePolicyEvaluation],
+) -> dict[str, int]:
+    counts = {code.value: 0 for code in PolicyReasonCode}
+    for evaluation in evaluations:
+        counts[evaluation.reason_code.value] += 1
+    return {key: value for key, value in counts.items() if value > 0}
+
+
+def _safe_trace_metadata(
+    request: RetrievalRequest,
+    *,
+    total_candidates: int,
+    total_allowed: int,
+    total_denied: int,
+    returned_count: int,
+    evaluations: list[EpisodePolicyEvaluation],
+) -> dict[str, Any]:
+    return {
+        "request_id": request.request_id,
+        "total_candidates": total_candidates,
+        "total_allowed": total_allowed,
+        "total_denied": total_denied,
+        "returned_count": returned_count,
+        "offset": request.offset,
+        "limit": request.limit,
+        "filter_keys": _filter_keys(request.filters),
+        "has_policy_scope": request.policy is not None,
+        "policy_decision_counts": _policy_decision_counts(evaluations),
+        "operation_version": OPERATION_VERSION,
+    }
 
 
 def _build_policy_context(request: RetrievalRequest) -> PolicyEvaluationContext:
@@ -48,10 +90,10 @@ def _build_policy_context(request: RetrievalRequest) -> PolicyEvaluationContext:
 
 class PolicyAwareEpisodeRetriever:
     """
-    Structured filter → policy gate → pagination.
+    Release-facing retrieval API: structured filter → policy gate → pagination.
 
-    Denied episodes are excluded from items. Policy decision metadata for denied
-    episodes contains ids and reason codes only — no episode payload.
+    Denied episodes are excluded from items. External policy decisions expose
+    episode_id, decision, and reason_code only.
     """
 
     def __init__(
@@ -61,12 +103,10 @@ class PolicyAwareEpisodeRetriever:
         episode_store: EventEpisodeRepository | None = None,
         policy_gate: PolicyGate | None = None,
         trace_store: TraceWriter | None = None,
-        structured_retriever: StructuredEpisodeRetriever | None = None,
     ) -> None:
         self._event_store = event_store
         self._episode_store = episode_store or event_store
         self._policy_gate = policy_gate or PolicyGate()
-        self._structured_retriever = structured_retriever or StructuredEpisodeRetriever()
         self._trace_store = trace_store
 
     def retrieve(self, request: RetrievalRequest) -> RetrievalResponse:
@@ -82,14 +122,14 @@ class PolicyAwareEpisodeRetriever:
                 input_refs=[request.request_id],
                 actor_id=request.actor_id,
                 error=str(exc),
-                metadata={
-                    "request_id": request.request_id,
-                    "filters": request.filters.model_dump(
-                        mode="json", exclude_none=True
-                    ),
-                    "limit": request.limit,
-                    "offset": request.offset,
-                },
+                metadata=_safe_trace_metadata(
+                    request,
+                    total_candidates=0,
+                    total_allowed=0,
+                    total_denied=0,
+                    returned_count=0,
+                    evaluations=[],
+                ),
             )
             raise
 
@@ -133,7 +173,6 @@ class PolicyAwareEpisodeRetriever:
                 episode_id=episode.episode_id,
                 episode=episode,
                 policy_result=evaluation.decision,
-                denied_reason=evaluation.denied_reason,
             )
             for episode, evaluation in page
         ]
@@ -156,15 +195,14 @@ class PolicyAwareEpisodeRetriever:
                 "total_allowed": total_allowed,
                 "total_denied": total_denied,
             },
-            metadata={
-                "request_id": request.request_id,
-                "total_candidates": total_candidates,
-                "total_allowed": total_allowed,
-                "total_denied": total_denied,
-                "offset": request.offset,
-                "limit": request.limit,
-                "filters": request.filters.model_dump(mode="json", exclude_none=True),
-            },
+            metadata=_safe_trace_metadata(
+                request,
+                total_candidates=total_candidates,
+                total_allowed=total_allowed,
+                total_denied=total_denied,
+                returned_count=len(items),
+                evaluations=evaluations,
+            ),
         )
 
         return RetrievalResponse(

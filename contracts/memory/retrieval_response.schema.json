@@ -1,11 +1,38 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://cognitive-twin.local/contracts/memory/retrieval_response.schema.json",
-  "title": "RetrievalResponse",
-  "oneOf": [
-    { "$ref": "#/$defs/PolicyAwareRetrievalResponse" },
-    { "$ref": "#/$defs/LegacyRetrievalResult" }
+  "title": "PolicyAwareRetrievalResponse",
+  "type": "object",
+  "required": [
+    "request_id",
+    "items",
+    "total_candidates",
+    "total_allowed",
+    "total_denied",
+    "returned_count",
+    "offset",
+    "limit",
+    "policy_decisions"
   ],
+  "additionalProperties": false,
+  "properties": {
+    "request_id": { "type": "string", "minLength": 1 },
+    "items": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/RetrievalItem" }
+    },
+    "total_candidates": { "type": "integer", "minimum": 0 },
+    "total_allowed": { "type": "integer", "minimum": 0 },
+    "total_denied": { "type": "integer", "minimum": 0 },
+    "returned_count": { "type": "integer", "minimum": 0 },
+    "offset": { "type": "integer", "minimum": 0 },
+    "limit": { "type": "integer", "minimum": 1, "maximum": 100 },
+    "policy_decisions": {
+      "type": ["array", "null"],
+      "items": { "$ref": "../policy/episode_policy_evaluation.schema.json" }
+    },
+    "trace_id": { "type": ["string", "null"] }
+  },
   "$defs": {
     "RetrievalItem": {
       "type": "object",
@@ -17,55 +44,6 @@
         "policy_result": {
           "type": "string",
           "enum": ["allow", "deny", "redact"]
-        },
-        "denied_reason": { "type": ["string", "null"] }
-      }
-    },
-    "PolicyAwareRetrievalResponse": {
-      "type": "object",
-      "required": [
-        "request_id",
-        "items",
-        "total_candidates",
-        "total_allowed",
-        "total_denied",
-        "returned_count",
-        "offset",
-        "limit"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "request_id": { "type": "string", "minLength": 1 },
-        "items": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/RetrievalItem" }
-        },
-        "total_candidates": { "type": "integer", "minimum": 0 },
-        "total_allowed": { "type": "integer", "minimum": 0 },
-        "total_denied": { "type": "integer", "minimum": 0 },
-        "returned_count": { "type": "integer", "minimum": 0 },
-        "offset": { "type": "integer", "minimum": 0 },
-        "limit": { "type": "integer", "minimum": 1, "maximum": 100 },
-        "policy_decisions": {
-          "type": ["array", "null"],
-          "items": { "$ref": "../policy/episode_policy_evaluation.schema.json" }
-        },
-        "trace_id": { "type": ["string", "null"] }
-      }
-    },
-    "LegacyRetrievalResult": {
-      "type": "object",
-      "required": ["request_id", "episode_ids", "episodes"],
-      "additionalProperties": false,
-      "properties": {
-        "request_id": { "type": "string", "minLength": 1 },
-        "episode_ids": {
-          "type": "array",
-          "items": { "type": "string", "minLength": 1 }
-        },
-        "episodes": {
-          "type": "array",
-          "items": { "$ref": "../events/episode.schema.json" }
         }
       }
     }

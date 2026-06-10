@@ -8,10 +8,8 @@ from pydantic import BaseModel, Field, field_validator
 
 from cognitive_twin.episodes import Episode, MemoryState
 from cognitive_twin.events import Sensitivity
-from cognitive_twin.operation_trace import TraceWriter, record_operation
 from cognitive_twin.policy_engine import EpisodePolicyEvaluation, PolicyDecisionValue
 from cognitive_twin.store import EpisodeRepository
-from cognitive_twin.traces import TraceStatus
 
 DEFAULT_RETRIEVAL_LIMIT = 50
 MAX_RETRIEVAL_LIMIT = 100
@@ -70,7 +68,7 @@ class RetrievalRequest(BaseModel):
 
 
 class RetrievalResult(BaseModel):
-    """Legacy structured retrieval result without policy metadata."""
+    """Deprecated internal shape — not a release-facing retrieval response."""
 
     request_id: str = Field(min_length=1)
     episode_ids: list[str] = Field(default_factory=list)
@@ -83,7 +81,6 @@ class RetrievalItem(BaseModel):
     episode_id: str
     episode: Episode
     policy_result: PolicyDecisionValue
-    denied_reason: str | None = None
 
 
 class RetrievalResponse(BaseModel):
@@ -123,7 +120,11 @@ def filter_episodes(
     store: EpisodeRepository,
     filters: RetrievalFilter,
 ) -> list[Episode]:
-    """Return episodes matching structured filters in deterministic order."""
+    """
+    Internal candidate selection by structured filters.
+
+    Not a release-facing retrieval API — use PolicyAwareEpisodeRetriever.
+    """
     matched = [
         episode.model_copy(deep=True)
         for episode in store.list_episodes()
@@ -131,42 +132,3 @@ def filter_episodes(
     ]
     matched.sort(key=lambda item: (item.created_at, item.episode_id))
     return matched
-
-
-class StructuredEpisodeRetriever:
-    """
-    Filter episodes by explicit fields.
-
-    No vector search, ranking model, LLM, or embeddings.
-    """
-
-    def retrieve(
-        self,
-        request_id: str,
-        store: EpisodeRepository,
-        filters: RetrievalFilter,
-        trace_store: TraceWriter | None = None,
-        actor_id: str | None = None,
-    ) -> RetrievalResult:
-        matched = filter_episodes(store, filters)
-        episode_ids = [episode.episode_id for episode in matched]
-        result = RetrievalResult(
-            request_id=request_id,
-            episode_ids=episode_ids,
-            episodes=matched,
-        )
-
-        record_operation(
-            trace_store,
-            operation="retrieve_episodes",
-            status=TraceStatus.SUCCEEDED,
-            input_refs=[request_id],
-            output_refs=episode_ids,
-            actor_id=actor_id,
-            metadata={
-                "request_id": request_id,
-                "match_count": len(episode_ids),
-                "filters": filters.model_dump(mode="json", exclude_none=True),
-            },
-        )
-        return result

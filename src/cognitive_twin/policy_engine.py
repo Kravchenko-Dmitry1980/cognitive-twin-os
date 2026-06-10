@@ -23,6 +23,14 @@ class PolicyDecisionValue(StrEnum):
     REDACT = "redact"
 
 
+class PolicyReasonCode(StrEnum):
+    ALLOWED = "allowed"
+    ACCESS_DENIED = "access_denied"
+    CONSENT_NOT_ALLOWED = "consent_not_allowed"
+    UNKNOWN_REFERENCE = "unknown_reference"
+    POLICY_ERROR = "policy_error"
+
+
 class PolicyEvaluationContext(BaseModel):
     """Input scope for evaluating episodes against event governance."""
 
@@ -36,12 +44,11 @@ class PolicyEvaluationContext(BaseModel):
 
 
 class EpisodePolicyEvaluation(BaseModel):
-    """Per-episode policy outcome — no episode payload when denied."""
+    """External per-episode policy outcome — reason_code only, no denial details."""
 
     episode_id: str
     decision: PolicyDecisionValue
-    reason_code: str
-    denied_reason: str | None = None
+    reason_code: PolicyReasonCode
 
 
 class PolicyGate:
@@ -73,11 +80,7 @@ class PolicyGate:
                 return EpisodePolicyEvaluation(
                     episode_id=episode.episode_id,
                     decision=PolicyDecisionValue.DENY,
-                    reason_code="sensitivity_denied",
-                    denied_reason=(
-                        f"Event {event_id!r} sensitivity "
-                        f"{governance.sensitivity.value!r} is not allowed"
-                    ),
+                    reason_code=PolicyReasonCode.ACCESS_DENIED,
                 )
 
             if (
@@ -87,18 +90,13 @@ class PolicyGate:
                 return EpisodePolicyEvaluation(
                     episode_id=episode.episode_id,
                     decision=PolicyDecisionValue.DENY,
-                    reason_code="imported_consent_denied",
-                    denied_reason=(
-                        f"Event {event_id!r} has imported consent_basis "
-                        "and allow_imported is false"
-                    ),
+                    reason_code=PolicyReasonCode.CONSENT_NOT_ALLOWED,
                 )
 
         return EpisodePolicyEvaluation(
             episode_id=episode.episode_id,
             decision=PolicyDecisionValue.ALLOW,
-            reason_code="allowed",
-            denied_reason=None,
+            reason_code=PolicyReasonCode.ALLOWED,
         )
 
     def evaluate_episodes(

@@ -10,6 +10,7 @@ from cognitive_twin.policy_engine import (
     PolicyDecisionValue,
     PolicyEvaluationContext,
     PolicyGate,
+    PolicyReasonCode,
 )
 from cognitive_twin.store import InMemoryEventStore
 from conftest import make_episode, make_event
@@ -31,7 +32,8 @@ def test_public_episode_allowed_by_default() -> None:
         episode, store, PolicyEvaluationContext()
     )
     assert result.decision == PolicyDecisionValue.ALLOW
-    assert result.reason_code == "allowed"
+    assert result.reason_code == PolicyReasonCode.ALLOWED
+    assert "denied_reason" not in result.model_dump()
 
 
 def test_internal_episode_allowed_by_default() -> None:
@@ -52,7 +54,7 @@ def test_private_episode_denied_by_default() -> None:
         episode, store, PolicyEvaluationContext()
     )
     assert result.decision == PolicyDecisionValue.DENY
-    assert result.reason_code == "sensitivity_denied"
+    assert result.reason_code == PolicyReasonCode.ACCESS_DENIED
 
 
 def test_sensitive_episode_denied_by_default() -> None:
@@ -64,7 +66,7 @@ def test_sensitive_episode_denied_by_default() -> None:
         episode, store, PolicyEvaluationContext()
     )
     assert result.decision == PolicyDecisionValue.DENY
-    assert result.reason_code == "sensitivity_denied"
+    assert result.reason_code == PolicyReasonCode.ACCESS_DENIED
 
 
 def test_private_allowed_when_in_allowed_sensitivities() -> None:
@@ -108,7 +110,7 @@ def test_imported_consent_denied_by_default() -> None:
         episode, store, PolicyEvaluationContext()
     )
     assert result.decision == PolicyDecisionValue.DENY
-    assert result.reason_code == "imported_consent_denied"
+    assert result.reason_code == PolicyReasonCode.CONSENT_NOT_ALLOWED
 
 
 def test_imported_consent_allowed_when_allow_imported_true() -> None:
@@ -135,7 +137,7 @@ def test_mixed_sensitivity_episode_uses_most_restrictive_event() -> None:
         episode, store, PolicyEvaluationContext()
     )
     assert result.decision == PolicyDecisionValue.DENY
-    assert result.reason_code == "sensitivity_denied"
+    assert result.reason_code == PolicyReasonCode.ACCESS_DENIED
 
 
 def test_unknown_event_id_fails_clearly() -> None:
@@ -157,3 +159,17 @@ def test_policy_decision_is_deterministic() -> None:
     first = gate.evaluate_episode(episode, store, context)
     second = gate.evaluate_episode(episode, store, context)
     assert first == second
+
+
+def test_external_policy_decision_exposes_reason_code_only() -> None:
+    store = _store_with_events(
+        make_event("evt_priv", sensitivity=Sensitivity.PRIVATE),
+    )
+    episode = make_episode(["evt_priv"], "ep_priv")
+    result = PolicyGate().evaluate_episode(
+        episode, store, PolicyEvaluationContext()
+    )
+    dumped = result.model_dump(mode="json")
+    assert set(dumped.keys()) == {"episode_id", "decision", "reason_code"}
+    assert "private" not in str(dumped).lower()
+    assert "evt_priv" not in dumped.get("reason_code", "")

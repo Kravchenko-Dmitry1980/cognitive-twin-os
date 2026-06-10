@@ -48,8 +48,6 @@ from cognitive_twin.retrieval import (
     RetrievalPolicyScope,
     RetrievalRequest,
     RetrievalResponse,
-    RetrievalResult,
-    StructuredEpisodeRetriever,
 )
 from cognitive_twin.store import EventStore, InMemoryEventStore
 from cognitive_twin.trace_store import JsonlTraceStore
@@ -94,10 +92,8 @@ __all__ = [
     "RetrievalPolicyScope",
     "RetrievalRequest",
     "RetrievalResponse",
-    "RetrievalResult",
     "Sensitivity",
     "StorageError",
-    "StructuredEpisodeRetriever",
     "TraceStatus",
     "UnknownEventReferenceError",
     "UnknownPolicyReferenceError",

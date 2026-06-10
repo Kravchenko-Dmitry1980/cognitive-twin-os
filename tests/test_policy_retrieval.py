@@ -10,7 +10,7 @@ from pydantic import ValidationError
 from cognitive_twin.episodes import MemoryState
 from cognitive_twin.errors import InvalidRetrievalRequestError, UnknownPolicyReferenceError
 from cognitive_twin.events import ConsentBasis, Sensitivity
-from cognitive_twin.policy_engine import PolicyDecisionValue
+from cognitive_twin.policy_engine import PolicyDecisionValue, PolicyReasonCode
 from cognitive_twin.policy_retrieval import PolicyAwareEpisodeRetriever
 from cognitive_twin.retrieval import RetrievalFilter, RetrievalPolicyScope, RetrievalRequest
 from cognitive_twin.store import InMemoryEventStore
@@ -114,7 +114,7 @@ def test_allowed_episodes_are_returned() -> None:
     assert response.returned_count == 3
 
 
-def test_policy_decisions_include_denied_without_episode_payload() -> None:
+def test_policy_decisions_expose_reason_code_only() -> None:
     store = _policy_store()
     response = PolicyAwareEpisodeRetriever(store).retrieve(
         RetrievalRequest(request_id="req_decisions")
@@ -126,11 +126,33 @@ def test_policy_decisions_include_denied_without_episode_payload() -> None:
         if decision.decision == PolicyDecisionValue.DENY
     ]
     assert len(denied) == 2
-    assert all(decision.episode_id for decision in denied)
-    assert all(decision.reason_code for decision in denied)
+    for decision in denied:
+        dumped = decision.model_dump(mode="json")
+        assert set(dumped.keys()) == {"episode_id", "decision", "reason_code"}
+        assert dumped["reason_code"] in {
+            PolicyReasonCode.ACCESS_DENIED.value,
+            PolicyReasonCode.CONSENT_NOT_ALLOWED.value,
+        }
+        assert "private" not in str(dumped).lower()
+        assert "sensitive" not in str(dumped).lower()
+        assert "imported" not in str(dumped).lower()
+        assert "evt_" not in dumped["reason_code"]
+
+
+def test_include_policy_decisions_false_suppresses_decisions() -> None:
+    store = _policy_store()
+    response = PolicyAwareEpisodeRetriever(store).retrieve(
+        RetrievalRequest(
+            request_id="req_no_decisions",
+            policy=RetrievalPolicyScope(include_policy_decisions=False),
+        )
+    )
+    assert response.policy_decisions is None
+    assert response.total_denied == 2
+    assert [item.episode_id for item in response.items] == ["ep_allowed"]
     assert all(
-        decision.denied_reason and "summary" not in decision.denied_reason.lower()
-        for decision in denied
+        item.episode_id != "ep_denied_priv" and item.episode_id != "ep_denied_imp"
+        for item in response.items
     )
 
 
@@ -265,6 +287,61 @@ def test_deterministic_result_order() -> None:
     ]
 
 
+def test_trace_metadata_does_not_contain_entity_filter_value(tmp_path) -> None:
+    store = _policy_store()
+    trace_store = JsonlTraceStore(tmp_path / "traces.jsonl")
+    PolicyAwareEpisodeRetriever(store, trace_store=trace_store).retrieve(
+        RetrievalRequest(
+            request_id="req_entity_trace",
+            filters=RetrievalFilter(entity="secret_entity_name"),
+        )
+    )
+    metadata = trace_store.list_traces()[0].metadata
+    assert "entity" in metadata["filter_keys"]
+    assert "secret_entity_name" not in str(metadata)
+
+
+def test_trace_metadata_does_not_contain_goal_filter_value(tmp_path) -> None:
+    store = _policy_store()
+    trace_store = JsonlTraceStore(tmp_path / "traces.jsonl")
+    PolicyAwareEpisodeRetriever(store, trace_store=trace_store).retrieve(
+        RetrievalRequest(
+            request_id="req_goal_trace",
+            filters=RetrievalFilter(goal="secret_goal_name"),
+        )
+    )
+    metadata = trace_store.list_traces()[0].metadata
+    assert "goal" in metadata["filter_keys"]
+    assert "secret_goal_name" not in str(metadata)
+
+
+def test_trace_metadata_does_not_contain_event_payload_or_summary(tmp_path) -> None:
+    store = _policy_store()
+    trace_store = JsonlTraceStore(tmp_path / "traces.jsonl")
+    PolicyAwareEpisodeRetriever(store, trace_store=trace_store).retrieve(
+        RetrievalRequest(request_id="req_payload_trace")
+    )
+    metadata = trace_store.list_traces()[0].metadata
+    assert "hello" not in str(metadata).lower()
+    assert "test episode" not in str(metadata).lower()
+    assert "filters" not in metadata
+
+
+def test_trace_metadata_contains_filter_keys_not_values(tmp_path) -> None:
+    store = _policy_store()
+    trace_store = JsonlTraceStore(tmp_path / "traces.jsonl")
+    PolicyAwareEpisodeRetriever(store, trace_store=trace_store).retrieve(
+        RetrievalRequest(
+            request_id="req_keys",
+            filters=RetrievalFilter(entity="alice", goal="plan"),
+        )
+    )
+    metadata = trace_store.list_traces()[0].metadata
+    assert metadata["filter_keys"] == ["entity", "goal"]
+    assert "alice" not in str(metadata)
+    assert "plan" not in str(metadata)
+
+
 def test_trace_written_for_successful_policy_retrieval(tmp_path) -> None:
     store = _policy_store()
     trace_store = JsonlTraceStore(tmp_path / "traces.jsonl")
@@ -283,7 +360,9 @@ def test_trace_written_for_successful_policy_retrieval(tmp_path) -> None:
     }
     assert trace.metadata["offset"] == 0
     assert trace.metadata["limit"] == 50
-    assert "payload" not in str(trace.metadata).lower()
+    assert trace.metadata["operation_version"] == "0.1.4"
+    assert trace.output_refs == ["ep_allowed"]
+    assert "ep_denied_priv" not in trace.output_refs
     assert response.trace_id == trace.trace_id
 
 
@@ -308,3 +387,5 @@ def test_trace_written_for_failed_retrieval(tmp_path) -> None:
     assert len(traces) == 1
     assert traces[0].operation == "policy_retrieve_episodes"
     assert traces[0].status == TraceStatus.FAILED
+    assert "filters" not in traces[0].metadata
+    assert "evt_missing" not in str(traces[0].metadata)

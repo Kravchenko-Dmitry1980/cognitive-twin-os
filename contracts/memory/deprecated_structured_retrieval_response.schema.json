@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cognitive-twin.local/contracts/memory/deprecated_structured_retrieval_response.schema.json",
+  "title": "DeprecatedStructuredRetrievalResult",
+  "description": "Deprecated Phase 1.2 response shape — not accepted by retrieval_response.schema.json",
+  "type": "object",
+  "required": ["request_id", "episode_ids", "episodes"],
+  "additionalProperties": false,
+  "properties": {
+    "request_id": { "type": "string", "minLength": 1 },
+    "episode_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "episodes": {
+      "type": "array",
+      "items": { "$ref": "../events/episode.schema.json" }
+    }
+  }
+}

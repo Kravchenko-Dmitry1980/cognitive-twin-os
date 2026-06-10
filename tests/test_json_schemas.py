@@ -16,7 +16,11 @@ from cognitive_twin.episode_builder import (
 )
 from cognitive_twin.ingest import IngestBatch, IngestError, IngestResult
 from cognitive_twin.policy import PolicyRequest, PolicyResponse
-from cognitive_twin.policy_engine import EpisodePolicyEvaluation, PolicyDecisionValue
+from cognitive_twin.policy_engine import (
+    EpisodePolicyEvaluation,
+    PolicyDecisionValue,
+    PolicyReasonCode,
+)
 from cognitive_twin.retrieval import (
     RetrievalFilter,
     RetrievalItem,
@@ -91,6 +95,7 @@ def test_all_contract_schemas_are_covered_and_valid() -> None:
         "events/event.schema.json",
         "ingest/ingest_batch.schema.json",
         "ingest/ingest_result.schema.json",
+        "memory/deprecated_structured_retrieval_response.schema.json",
         "memory/episode_build_request.schema.json",
         "memory/episode_build_result.schema.json",
         "memory/retrieval_request.schema.json",
@@ -241,11 +246,6 @@ def test_valid_retrieval_contracts_pass_schema() -> None:
             allow_imported=False,
         ),
     )
-    legacy_result = RetrievalResult(
-        request_id="req_1",
-        episode_ids=["ep_1"],
-        episodes=[],
-    )
     policy_response = RetrievalResponse(
         request_id="req_1",
         items=[
@@ -263,7 +263,7 @@ def test_valid_retrieval_contracts_pass_schema() -> None:
             EpisodePolicyEvaluation(
                 episode_id="ep_1",
                 decision=PolicyDecisionValue.ALLOW,
-                reason_code="allowed",
+                reason_code=PolicyReasonCode.ALLOWED,
             )
         ],
         trace_id="trace_1",
@@ -274,12 +274,46 @@ def test_valid_retrieval_contracts_pass_schema() -> None:
     )
     _assert_valid(
         "memory/retrieval_response.schema.json",
-        legacy_result.model_dump(mode="json"),
-    )
-    _assert_valid(
-        "memory/retrieval_response.schema.json",
         policy_response.model_dump(mode="json"),
     )
+
+
+def test_legacy_retrieval_response_fails_policy_aware_schema() -> None:
+    legacy_result = RetrievalResult(
+        request_id="req_1",
+        episode_ids=["ep_1"],
+        episodes=[],
+    )
+    errors = list(
+        _validator("memory/retrieval_response.schema.json").iter_errors(
+            legacy_result.model_dump(mode="json")
+        )
+    )
+    assert errors
+
+
+def test_retrieval_response_with_denied_reason_fails_schema() -> None:
+    data = RetrievalResponse(
+        request_id="req_1",
+        items=[],
+        total_candidates=0,
+        total_allowed=0,
+        total_denied=0,
+        returned_count=0,
+        policy_decisions=[],
+    ).model_dump(mode="json")
+    data["items"] = [
+        {
+            "episode_id": "ep_1",
+            "episode": make_episode(["evt_1"]).model_dump(mode="json"),
+            "policy_result": "allow",
+            "denied_reason": "should not be here",
+        }
+    ]
+    errors = list(
+        _validator("memory/retrieval_response.schema.json").iter_errors(data)
+    )
+    assert errors
 
 
 def test_retrieval_request_invalid_limit_fails_schema() -> None:
@@ -308,19 +342,26 @@ def test_episode_policy_evaluation_schema_valid_and_invalid() -> None:
     valid = EpisodePolicyEvaluation(
         episode_id="ep_1",
         decision=PolicyDecisionValue.DENY,
-        reason_code="sensitivity_denied",
-        denied_reason="not allowed",
+        reason_code=PolicyReasonCode.ACCESS_DENIED,
     )
     _assert_valid(
         "policy/episode_policy_evaluation.schema.json",
         valid.model_dump(mode="json"),
     )
-    invalid = valid.model_dump(mode="json")
-    invalid["decision"] = "block"
-    errors = list(
-        _validator("policy/episode_policy_evaluation.schema.json").iter_errors(invalid)
+    invalid_decision = valid.model_dump(mode="json")
+    invalid_decision["decision"] = "block"
+    assert list(
+        _validator("policy/episode_policy_evaluation.schema.json").iter_errors(
+            invalid_decision
+        )
     )
-    assert errors
+    with_denied_reason = valid.model_dump(mode="json")
+    with_denied_reason["denied_reason"] = "leaks detail"
+    assert list(
+        _validator("policy/episode_policy_evaluation.schema.json").iter_errors(
+            with_denied_reason
+        )
+    )
 
 
 def test_valid_policy_contracts_pass_schema() -> None:
