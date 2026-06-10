@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cognitive-twin.local/contracts/decision/decision_response.schema.json",
+  "title": "DecisionResponse",
+  "type": "object",
+  "required": ["request_id", "recommendation", "evidence_event_ids", "confidence"],
+  "additionalProperties": false,
+  "properties": {
+    "request_id": { "type": "string", "minLength": 1 },
+    "recommendation": { "type": "string" },
+    "evidence_event_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "rationale": { "type": "string" },
+    "alternatives": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

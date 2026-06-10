@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cognitive-twin.local/contracts/decision/decision_request.schema.json",
+  "title": "DecisionRequest",
+  "type": "object",
+  "required": ["request_id", "actor_id", "decision_type", "context_event_ids"],
+  "additionalProperties": false,
+  "properties": {
+    "request_id": { "type": "string", "minLength": 1 },
+    "actor_id": { "type": "string", "minLength": 1 },
+    "decision_type": { "type": "string", "minLength": 1 },
+    "context_event_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "options": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "constraints": { "type": "object" }
+  }
+}

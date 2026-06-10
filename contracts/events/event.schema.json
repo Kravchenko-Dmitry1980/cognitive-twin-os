@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cognitive-twin.local/contracts/events/event.schema.json",
+  "title": "Event",
+  "type": "object",
+  "required": [
+    "event_id",
+    "source",
+    "actor",
+    "timestamp",
+    "event_type",
+    "payload",
+    "provenance",
+    "governance"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "event_id": { "type": "string", "minLength": 1 },
+    "source": { "$ref": "#/$defs/EventSource" },
+    "actor": { "$ref": "#/$defs/Actor" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "message",
+        "decision",
+        "task",
+        "document_added",
+        "feedback",
+        "outcome",
+        "correction",
+        "system_event"
+      ]
+    },
+    "payload": { "type": "object" },
+    "provenance": { "$ref": "#/$defs/Provenance" },
+    "governance": { "$ref": "#/$defs/Governance" }
+  },
+  "$defs": {
+    "EventSource": {
+      "type": "object",
+      "required": ["type", "source_id"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "minLength": 1 },
+        "source_id": { "type": "string", "minLength": 1 },
+        "uri": { "type": ["string", "null"] }
+      }
+    },
+    "Actor": {
+      "type": "object",
+      "required": ["actor_id", "role"],
+      "additionalProperties": false,
+      "properties": {
+        "actor_id": { "type": "string", "minLength": 1 },
+        "role": { "type": "string", "minLength": 1 }
+      }
+    },
+    "Provenance": {
+      "type": "object",
+      "required": ["captured_by", "confidence", "content_hash", "schema_version"],
+      "additionalProperties": false,
+      "properties": {
+        "captured_by": { "type": "string", "minLength": 1 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "content_hash": { "type": "string", "minLength": 1 },
+        "schema_version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "Governance": {
+      "type": "object",
+      "required": ["sensitivity", "consent_basis", "retention_policy"],
+      "additionalProperties": false,
+      "properties": {
+        "sensitivity": {
+          "type": "string",
+          "enum": ["public", "internal", "private", "sensitive"]
+        },
+        "consent_basis": {
+          "type": "string",
+          "enum": ["explicit", "imported", "system_generated"]
+        },
+        "retention_policy": {
+          "type": "string",
+          "enum": ["default", "short", "archive", "delete_on_request"]
+        }
+      }
+    }
+  }
+}

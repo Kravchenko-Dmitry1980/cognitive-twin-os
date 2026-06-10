@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cognitive-twin.local/contracts/policy/policy_response.schema.json",
+  "title": "PolicyResponse",
+  "type": "object",
+  "required": ["request_id", "decision"],
+  "additionalProperties": false,
+  "properties": {
+    "request_id": { "type": "string", "minLength": 1 },
+    "decision": {
+      "type": "object",
+      "required": ["allowed", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "allowed": { "type": "boolean" },
+        "reason": { "type": "string" },
+        "governance": {
+          "type": "object",
+          "required": ["sensitivity", "consent_basis", "retention_policy"],
+          "additionalProperties": false,
+          "properties": {
+            "sensitivity": {
+              "type": "string",
+              "enum": ["public", "internal", "private", "sensitive"]
+            },
+            "consent_basis": {
+              "type": "string",
+              "enum": ["explicit", "imported", "system_generated"]
+            },
+            "retention_policy": {
+              "type": "string",
+              "enum": ["default", "short", "archive", "delete_on_request"]
+            }
+          }
+        },
+        "constraints": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

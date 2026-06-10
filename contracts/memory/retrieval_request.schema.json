@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cognitive-twin.local/contracts/memory/retrieval_request.schema.json",
+  "title": "RetrievalRequest",
+  "type": "object",
+  "required": ["request_id", "actor_id", "query", "memory_states", "limit"],
+  "additionalProperties": false,
+  "properties": {
+    "request_id": { "type": "string", "minLength": 1 },
+    "actor_id": { "type": "string", "minLength": 1 },
+    "query": { "type": "string" },
+    "memory_states": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["raw", "curated", "consolidated", "archived", "invalidated"]
+      }
+    },
+    "limit": { "type": "integer", "minimum": 1, "maximum": 100 },
+    "filters": { "type": "object" }
+  }
+}

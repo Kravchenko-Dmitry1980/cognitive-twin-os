@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cognitive-twin.local/contracts/policy/policy_request.schema.json",
+  "title": "PolicyRequest",
+  "type": "object",
+  "required": ["request_id", "actor_id", "action", "resource_type", "resource_id"],
+  "additionalProperties": false,
+  "properties": {
+    "request_id": { "type": "string", "minLength": 1 },
+    "actor_id": { "type": "string", "minLength": 1 },
+    "action": { "type": "string", "minLength": 1 },
+    "resource_type": { "type": "string", "minLength": 1 },
+    "resource_id": { "type": "string", "minLength": 1 },
+    "proposed_sensitivity": {
+      "type": "string",
+      "enum": ["public", "internal", "private", "sensitive"]
+    },
+    "context": { "type": "object" }
+  }
+}
