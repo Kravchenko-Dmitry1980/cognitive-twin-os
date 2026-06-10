@@ -68,13 +68,14 @@ Future offline process that compacts raw episodes, updates salience, extracts en
 
 ### Policy / governance layer
 
-Evaluates whether an action (read, share, consolidate, delete) is allowed given sensitivity, consent_basis, and retention_policy. Contracts: `policy_request.schema.json`, `policy_response.schema.json`.
+Evaluates whether an action (read, share, consolidate, delete) is allowed given sensitivity, consent_basis, and retention_policy. Contracts: `policy_request.schema.json`, `policy_response.schema.json`, `episode_policy_evaluation.schema.json`.
 
-Phase 0/1: Pydantic models and JSON schemas; no runtime engine.
+Phase 1.3: `PolicyGate` evaluates each candidate episode against governance of
+all referenced events. Conservative defaults deny `private`/`sensitive` and
+`imported` consent unless explicitly allowed in `RetrievalPolicyScope`.
 
-**Release 0.1.2:** Governance fields are structurally validated on events.
-Policy enforcement before read/share/consolidate is Phase 1.3 — not claimed in
-this release.
+**FACT:** This is local policy enforcement only — not production IAM, not
+relationship-based access control, not retention job execution.
 
 ### Retrieval layer
 
@@ -82,8 +83,9 @@ Phase 1.2: `StructuredEpisodeRetriever` filters episodes by explicit fields
 (`episode_type`, `memory_state`, `min_salience`, `entity`, `goal`, time range).
 No vector search, ranking model, or LLM.
 
-Future: policy-gated retrieval API and pagination over the structured retrieval
-contract.
+Phase 1.3: `PolicyAwareEpisodeRetriever` runs structured filter → policy gate →
+pagination. Denied episodes are excluded from `items`; `policy_decisions` may
+include episode id and reason code only.
 
 ### Decision API (placeholder)
 
@@ -121,7 +123,7 @@ service.
 | Domain Layer | `Event`, `Episode`, `OperationTrace`, explicit errors |
 | Application Layer | Import/export functions in `cognitive_twin.io` |
 | Infrastructure Layer | `InMemoryEventStore`, `JsonlEventStore`, `JsonlTraceStore` |
-| Orchestration Layer | `ManualJsonlIngestAdapter`, `DeterministicEpisodeBuilder`, `StructuredEpisodeRetriever` |
+| Orchestration Layer | `ManualJsonlIngestAdapter`, `DeterministicEpisodeBuilder`, `StructuredEpisodeRetriever`, `PolicyAwareEpisodeRetriever` |
 | Interface Layer | JSON Schema contracts under `contracts/` |
 
 ## ROOT CAUSE
@@ -171,15 +173,28 @@ pytest -q
 | Ingest JSONL | `ManualJsonlIngestAdapter` | `ingest_batch` |
 | Build episode | `DeterministicEpisodeBuilder` | `build_episode` |
 | Filter episodes | `StructuredEpisodeRetriever` | `retrieve_episodes` |
+| Policy retrieval | `PolicyAwareEpisodeRetriever` | `policy_retrieve_episodes` |
 
-Trace metadata stays minimal: batch/request ids, counts, and filter keys.
+Trace metadata stays minimal: batch/request ids, counts, and filter keys. Policy
+retrieval traces must not include event payloads or sensitive content.
 
 ## Import/export semantics
 
 `cognitive_twin.io.export_*_to_jsonl` overwrites the target file (`"w"` mode).
 `import_*_from_jsonl` raises `StorageError` on corrupted JSONL with line number.
 
+## Phase 1.3 component flow
+
+```text
+RetrievalRequest
+  -> filter_episodes (structured)
+  -> PolicyGate (per episode, all referenced events)
+  -> pagination on allowed episodes only
+  -> RetrievalResponse + optional policy_retrieve_episodes trace
+```
+
 ## NEXT ACTIONS
 
-Phase 1.3 should add policy-gated retrieval and pagination without changing the
-Phase 1.2 structured retrieval contract unless a versioned migration is added.
+Phase 2 should add retention enforcement, deletion workflows, and richer audit
+without introducing FastAPI, PostgreSQL, vector search, or LLM dependencies
+until explicitly scoped.

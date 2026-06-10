@@ -24,6 +24,14 @@ Phase 1.2 adds:
 - Structured retrieval filters (no vector search, no LLM)
 - Operation traces for ingest, build, and retrieval
 
+Phase 1.3 adds:
+
+- Deterministic policy gate before retrieval (`PolicyGate`, `PolicyAwareEpisodeRetriever`)
+- Conservative default policy: `private`/`sensitive` denied; `imported` consent denied
+- Policy filtering before pagination (`limit`/`offset`, max 100)
+- Policy-aware retrieval response with decision metadata (no denied episode payload)
+- Operation traces for `policy_retrieve_episodes` without sensitive payloads
+
 ## What this project is not
 
 - Not an LLM assistant or chatbot product
@@ -53,8 +61,10 @@ Cognitive Twin OS treats **events** (atomic facts with provenance) and **episode
 | JSONL ingest adapter | LLM providers |
 | Deterministic episode builder | Consolidation engine |
 | Structured retrieval filters | Identity updates |
+| Policy gate before retrieval | FastAPI / HTTP API |
+| Pagination after policy filter | PostgreSQL / SQLAlchemy |
 | JSON Schema contracts | UI |
-| Policy/decision contract stubs | FastAPI / HTTP API |
+| Policy/decision contracts | Production IAM |
 | pytest + ruff + CI | PostgreSQL / SQLAlchemy |
 
 See [ROADMAP.md](ROADMAP.md) for future phases.
@@ -171,7 +181,25 @@ ORMs, and network HTTP clients.
 writer coordination, policy enforcement, governed runtime, identity update,
 consolidation, or semantic/vector retrieval.
 
-Current package version: **0.1.3** (Phase 1.1 + 1.2 stabilization).
+## Release 0.1.4 — Policy gate before retrieval
+
+**FACT:** `PolicyAwareEpisodeRetriever` applies structured filters, evaluates
+each candidate episode against governance of referenced events, then paginates
+allowed results only.
+
+**DESIGN DECISION:** Default policy is conservative: `allowed_sensitivities` is
+`["public", "internal"]`, `allow_imported` is `false`. Denied episodes are
+excluded from `items`; `policy_decisions` may include episode id and reason code
+only.
+
+**FACT:** Policy enforcement is local and minimal — not a production governed
+runtime. No relationship-based access control, retention jobs, or deletion
+workflows yet.
+
+**FACT:** Traces for policy retrieval record counts and ids only — no event
+payloads or sensitive content in metadata.
+
+Current package version: **0.1.4** (Phase 1.3 policy gate).
 
 ## Documentation
 

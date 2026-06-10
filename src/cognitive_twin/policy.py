@@ -7,6 +7,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from cognitive_twin.events import Governance, Sensitivity
+from cognitive_twin.policy_engine import PolicyDecisionValue
 
 
 class PolicyRequest(BaseModel):
@@ -26,6 +27,7 @@ class PolicyDecision(BaseModel):
     reason: str
     governance: Governance | None = None
     constraints: list[str] = Field(default_factory=list)
+    decision_value: PolicyDecisionValue | None = None
 
 
 class PolicyResponse(BaseModel):

@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
+from referencing import Registry, Resource
 
 from cognitive_twin.episode_builder import (
     EpisodeBuildRequest,
@@ -15,7 +16,15 @@ from cognitive_twin.episode_builder import (
 )
 from cognitive_twin.ingest import IngestBatch, IngestError, IngestResult
 from cognitive_twin.policy import PolicyRequest, PolicyResponse
-from cognitive_twin.retrieval import RetrievalFilter, RetrievalRequest, RetrievalResult
+from cognitive_twin.policy_engine import EpisodePolicyEvaluation, PolicyDecisionValue
+from cognitive_twin.retrieval import (
+    RetrievalFilter,
+    RetrievalItem,
+    RetrievalPolicyScope,
+    RetrievalRequest,
+    RetrievalResponse,
+    RetrievalResult,
+)
 from cognitive_twin.traces import OperationTrace, TraceStatus
 from conftest import make_episode, make_event
 
@@ -31,9 +40,24 @@ def _load_schema(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _contract_registry() -> Registry:
+    registry = Registry()
+    for path in SCHEMA_PATHS.values():
+        schema = _load_schema(path)
+        schema_id = schema.get("$id", path.as_uri())
+        registry = registry.with_resource(
+            schema_id,
+            Resource.from_contents(schema),
+        )
+    return registry
+
+
+_CONTRACT_REGISTRY = _contract_registry()
+
+
 def _validator(schema_name: str) -> Draft202012Validator:
     schema = _load_schema(SCHEMA_PATHS[schema_name])
-    return Draft202012Validator(schema)
+    return Draft202012Validator(schema, registry=_CONTRACT_REGISTRY)
 
 
 def _assert_valid(schema_name: str, data: dict) -> None:
@@ -71,6 +95,7 @@ def test_all_contract_schemas_are_covered_and_valid() -> None:
         "memory/episode_build_result.schema.json",
         "memory/retrieval_request.schema.json",
         "memory/retrieval_response.schema.json",
+        "policy/episode_policy_evaluation.schema.json",
         "policy/policy_request.schema.json",
         "policy/policy_response.schema.json",
         "traces/operation_trace.schema.json",
@@ -211,11 +236,37 @@ def test_valid_retrieval_contracts_pass_schema() -> None:
         request_id="req_1",
         filters=RetrievalFilter(memory_state="raw", min_salience=0.5),
         actor_id="actor_user01",
+        policy=RetrievalPolicyScope(
+            allowed_sensitivities=["public", "internal"],
+            allow_imported=False,
+        ),
     )
-    result = RetrievalResult(
+    legacy_result = RetrievalResult(
         request_id="req_1",
         episode_ids=["ep_1"],
         episodes=[],
+    )
+    policy_response = RetrievalResponse(
+        request_id="req_1",
+        items=[
+            RetrievalItem(
+                episode_id="ep_1",
+                episode=make_episode(["evt_1"]),
+                policy_result=PolicyDecisionValue.ALLOW,
+            )
+        ],
+        total_candidates=1,
+        total_allowed=1,
+        total_denied=0,
+        returned_count=1,
+        policy_decisions=[
+            EpisodePolicyEvaluation(
+                episode_id="ep_1",
+                decision=PolicyDecisionValue.ALLOW,
+                reason_code="allowed",
+            )
+        ],
+        trace_id="trace_1",
     )
     _assert_valid(
         "memory/retrieval_request.schema.json",
@@ -223,8 +274,53 @@ def test_valid_retrieval_contracts_pass_schema() -> None:
     )
     _assert_valid(
         "memory/retrieval_response.schema.json",
-        result.model_dump(mode="json"),
+        legacy_result.model_dump(mode="json"),
     )
+    _assert_valid(
+        "memory/retrieval_response.schema.json",
+        policy_response.model_dump(mode="json"),
+    )
+
+
+def test_retrieval_request_invalid_limit_fails_schema() -> None:
+    data = {
+        "request_id": "req_bad",
+        "limit": 0,
+    }
+    errors = list(
+        _validator("memory/retrieval_request.schema.json").iter_errors(data)
+    )
+    assert errors
+
+
+def test_retrieval_request_invalid_sensitivity_enum_fails_schema() -> None:
+    data = {
+        "request_id": "req_bad",
+        "policy": {"allowed_sensitivities": ["top_secret"]},
+    }
+    errors = list(
+        _validator("memory/retrieval_request.schema.json").iter_errors(data)
+    )
+    assert errors
+
+
+def test_episode_policy_evaluation_schema_valid_and_invalid() -> None:
+    valid = EpisodePolicyEvaluation(
+        episode_id="ep_1",
+        decision=PolicyDecisionValue.DENY,
+        reason_code="sensitivity_denied",
+        denied_reason="not allowed",
+    )
+    _assert_valid(
+        "policy/episode_policy_evaluation.schema.json",
+        valid.model_dump(mode="json"),
+    )
+    invalid = valid.model_dump(mode="json")
+    invalid["decision"] = "block"
+    errors = list(
+        _validator("policy/episode_policy_evaluation.schema.json").iter_errors(invalid)
+    )
+    assert errors
 
 
 def test_valid_policy_contracts_pass_schema() -> None:
@@ -237,10 +333,27 @@ def test_valid_policy_contracts_pass_schema() -> None:
     )
     response = PolicyResponse(
         request_id="req_1",
-        decision={"allowed": True, "reason": "structural check only"},
+        decision={
+            "allowed": True,
+            "reason": "structural check only",
+            "decision_value": "allow",
+        },
     )
     _assert_valid("policy/policy_request.schema.json", request.model_dump(mode="json"))
     _assert_valid("policy/policy_response.schema.json", response.model_dump(mode="json"))
+
+
+def test_policy_response_invalid_decision_value_fails_schema() -> None:
+    data = {
+        "request_id": "req_1",
+        "decision": {
+            "allowed": False,
+            "reason": "denied",
+            "decision_value": "block",
+        },
+    }
+    errors = list(_validator("policy/policy_response.schema.json").iter_errors(data))
+    assert errors
 
 
 def test_valid_decision_stub_contracts_pass_schema() -> None:

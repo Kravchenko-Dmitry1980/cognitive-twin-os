@@ -18,7 +18,9 @@ Measure whether the cognitive twin improves decision quality and memory continui
 | Ingest validation | Accept valid JSONL, reject invalid/duplicate records |
 | Episode build determinism | Timestamp ordering, no event mutation |
 | Structured retrieval | Filters by memory_state, salience, entity, goal, time |
-| Operation traces | ingest/build/retrieval emit trace records |
+| Policy gate | Sensitivity/consent deny/allow; unknown event_id fails clearly |
+| Policy-aware retrieval | Denied episodes excluded; pagination after policy filter |
+| Operation traces | ingest/build/retrieval/policy_retrieve emit trace records |
 | Store snapshot isolation | Mutation of returned models does not affect stored state |
 | Episode schema compliance | Valid episode passes; missing `event_ids` / invalid `memory_state` fail |
 | Import/export safety | Corrupted JSONL raises `StorageError`; export overwrites target file |
@@ -121,10 +123,22 @@ pytest -q
 
 Automated snapshot tests live in `tests/test_store_snapshots.py`.
 
-**FACT:** Passing tests do not imply a governed production runtime. Policy
-enforcement metrics are Phase 1.3.
+**FACT:** Passing tests do not imply a governed production runtime.
+
+## Phase 1.3 test coverage
+
+Automated tests in `tests/test_policy_engine.py` and
+`tests/test_policy_retrieval.py` cover:
+
+- conservative default deny for private/sensitive/imported consent
+- explicit allow when policy scope permits
+- mixed-sensitivity episodes (most restrictive event wins)
+- unknown `event_id` during policy evaluation fails clearly
+- policy filtering before pagination
+- denied episodes excluded from items without payload leak
+- `policy_retrieve_episodes` trace emission without sensitive metadata
 
 ## NEXT ACTIONS
 
-Phase 1.3 should add ingest rejection rate dashboards and retrieval precision
-fixtures against labeled episode sets.
+Phase 2 should add policy compliance rate metrics and retention enforcement
+fixtures without adding forbidden dependencies.

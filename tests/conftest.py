@@ -26,6 +26,8 @@ def make_event(
     payload: dict | None = None,
     metadata: dict | None = None,
     timestamp: datetime | None = None,
+    sensitivity: Sensitivity = Sensitivity.INTERNAL,
+    consent_basis: ConsentBasis = ConsentBasis.EXPLICIT,
 ) -> Event:
     payload = payload or {"text": "hello"}
     metadata = metadata or {"channel": "test"}
@@ -45,8 +47,8 @@ def make_event(
             schema_version="1.0.0",
         ),
         governance=Governance(
-            sensitivity=Sensitivity.INTERNAL,
-            consent_basis=ConsentBasis.EXPLICIT,
+            sensitivity=sensitivity,
+            consent_basis=consent_basis,
             retention_policy=RetentionPolicy.DEFAULT,
         ),
     )

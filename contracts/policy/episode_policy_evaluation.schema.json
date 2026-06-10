@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cognitive-twin.local/contracts/policy/episode_policy_evaluation.schema.json",
+  "title": "EpisodePolicyEvaluation",
+  "type": "object",
+  "required": ["episode_id", "decision", "reason_code"],
+  "additionalProperties": false,
+  "properties": {
+    "episode_id": { "type": "string", "minLength": 1 },
+    "decision": {
+      "type": "string",
+      "enum": ["allow", "deny", "redact"]
+    },
+    "reason_code": { "type": "string", "minLength": 1 },
+    "denied_reason": { "type": ["string", "null"] }
+  }
+}

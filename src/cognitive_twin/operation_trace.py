@@ -26,6 +26,7 @@ def record_operation(
     input_refs: list[str] | None = None,
     output_refs: list[str] | None = None,
     actor_id: str | None = None,
+    policy_result: dict[str, Any] | None = None,
     error: str | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> OperationTrace:
@@ -41,6 +42,7 @@ def record_operation(
         actor_id=actor_id,
         input_refs=input_refs or [],
         output_refs=output_refs or [],
+        policy_result=policy_result,
         status=status,
         error=error,
         metadata=metadata or {},

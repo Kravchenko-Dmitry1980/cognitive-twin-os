@@ -68,14 +68,16 @@ and reason; accepted records are appended to the event repository.
 Episodes group events into recallable memory units with salience, entities, goals, and `memory_state`.
 
 Episode build contracts define deterministic grouping from explicit `event_ids`.
-Retrieval request/response define the local structured retrieval boundary:
-`request_id`, explicit filters, and matched episodes.
+Retrieval request/response define the local retrieval boundary: structured
+filters, optional `RetrievalPolicyScope`, pagination (`limit`, `offset`), and
+policy-aware response metadata.
 
 **Implementations:**
 
 - `cognitive_twin.episodes.Episode`
 - `cognitive_twin.episode_builder.DeterministicEpisodeBuilder`
 - `cognitive_twin.retrieval.StructuredEpisodeRetriever`
+- `cognitive_twin.policy_retrieval.PolicyAwareEpisodeRetriever`
 
 ## Policy Contract
 
@@ -83,17 +85,32 @@ Retrieval request/response define the local structured retrieval boundary:
 
 - `contracts/policy/policy_request.schema.json`
 - `contracts/policy/policy_response.schema.json`
+- `contracts/policy/episode_policy_evaluation.schema.json`
 
-Policy requests describe an action on a resource; responses return `allowed`, `reason`, optional `governance`, and `constraints`.
+Policy requests describe an action on a resource; responses return `allowed`,
+`reason`, optional `governance`, `constraints[]`, and optional `decision_value`.
 
-**Implementations (Phase 0/1):** `cognitive_twin.policy.PolicyRequest`, `PolicyResponse`
+**Implementations:**
+
+- `cognitive_twin.policy.PolicyRequest`, `PolicyResponse`
+- `cognitive_twin.policy_engine.PolicyGate`, `EpisodePolicyEvaluation`
 
 ## Retrieval Contract
 
-Structured filtering is implemented in Phase 1.2 via `RetrievalRequest`,
-`RetrievalFilter`, `RetrievalResult`, and `StructuredEpisodeRetriever`.
+Phase 1.2: structured filtering via `RetrievalFilter`, `RetrievalResult`,
+`StructuredEpisodeRetriever`.
 
-No vector search, ranking model, or LLM in Phase 1.2.
+Phase 1.3: policy-aware path via `RetrievalRequest` (with `policy`, `limit`,
+`offset`) and `RetrievalResponse` (with `items`, policy counts, optional
+`policy_decisions`, `trace_id`).
+
+Pagination rules:
+
+- `limit` default 50, maximum 100, must be positive
+- `offset` must be >= 0
+- policy filtering runs before pagination
+
+No vector search, ranking model, or LLM.
 
 ## Decision Contract
 
@@ -187,18 +204,23 @@ trace status values.
 | Ingest | `ingest_batch` | `batch_id`, `accepted_count`, `rejected_count` |
 | Episode build | `build_episode` | `request_id`, `episode_id`, `event_count` |
 | Retrieval | `retrieve_episodes` | `request_id`, `match_count`, `filters` |
+| Policy retrieval | `policy_retrieve_episodes` | `total_candidates`, `total_allowed`, `total_denied`, `offset`, `limit` |
+
+Policy retrieval traces must not include event payloads or sensitive content in
+`metadata`.
 
 ## Import/export contract
 
 - `export_events_to_jsonl` / `export_episodes_to_jsonl`: overwrite target file
 - `import_*_from_jsonl`: raise `StorageError` on missing file or corrupted JSONL
 
-## Policy status (0.1.2)
+## Policy status (0.1.4)
 
-Governance enums are validated structurally on events. Runtime policy
-enforcement (deny/allow before retrieval) is **not** implemented — Phase 1.3.
+Governance enums are validated on events. `PolicyGate` enforces sensitivity and
+consent before retrieval returns episodes. This is local enforcement only — not
+production IAM.
 
 ## NEXT ACTIONS
 
-Phase 1.3 should wire policy checks into retrieval and formalize evaluation
-metrics for ingest rejection rates and filter precision.
+Phase 2 should add retention enforcement, deletion workflows, and evaluation
+metrics for policy compliance rate without adding forbidden dependencies.

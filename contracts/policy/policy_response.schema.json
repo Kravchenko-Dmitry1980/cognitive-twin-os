@@ -36,6 +36,10 @@
         "constraints": {
           "type": "array",
           "items": { "type": "string" }
+        },
+        "decision_value": {
+          "type": ["string", "null"],
+          "enum": ["allow", "deny", "redact", null]
         }
       }
     }

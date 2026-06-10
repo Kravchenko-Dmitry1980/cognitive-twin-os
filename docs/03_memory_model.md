@@ -134,14 +134,28 @@ the builder groups; consolidation and identity updates remain future phases.
 **FACT:** `StructuredEpisodeRetriever` filters episodes by explicit fields only.
 No embeddings, ranking models, or LLM.
 
-## Release scope (0.1.2)
+## Phase 1.3 policy-gated retrieval
 
+**FACT:** `PolicyAwareEpisodeRetriever` applies structured filters, evaluates
+each candidate against event governance via `PolicyGate`, then paginates allowed
+episodes only.
+
+**DESIGN DECISION:** Policy filtering precedes pagination so denied episodes do
+not occupy result slots.
+
+**FACT:** Default policy denies `private`/`sensitive` and `imported` consent.
+Denied episode content is not returned in `items`.
+
+## Release scope (0.1.4)
+
+- Local policy gate before retrieval
+- Pagination after policy filter
 - No identity update
 - No consolidation
 - No LLM interpretation
 - No vector search
-- Policy fields validated structurally; enforcement deferred to Phase 1.3
+- No production IAM, retention jobs, or deletion workflows
 
 ## NEXT ACTIONS
 
-Phase 1.3 should add policy-gated retrieval and ingest rejection rate metrics.
+Phase 2 should add retention enforcement and richer governance audit trails.

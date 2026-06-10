@@ -11,8 +11,11 @@ from cognitive_twin.errors import (
     DuplicateEpisodeError,
     DuplicateEventError,
     DuplicateTraceError,
+    InvalidRetrievalRequestError,
+    PolicyError,
     StorageError,
     UnknownEventReferenceError,
+    UnknownPolicyReferenceError,
 )
 from cognitive_twin.events import (
     Actor,
@@ -33,9 +36,18 @@ from cognitive_twin.ingest import (
     ManualJsonlIngestAdapter,
 )
 from cognitive_twin.jsonl_store import JsonlEventStore
+from cognitive_twin.policy_engine import (
+    EpisodePolicyEvaluation,
+    PolicyDecisionValue,
+    PolicyEvaluationContext,
+    PolicyGate,
+)
+from cognitive_twin.policy_retrieval import PolicyAwareEpisodeRetriever
 from cognitive_twin.retrieval import (
     RetrievalFilter,
+    RetrievalPolicyScope,
     RetrievalRequest,
+    RetrievalResponse,
     RetrievalResult,
     StructuredEpisodeRetriever,
 )
@@ -54,6 +66,7 @@ __all__ = [
     "EpisodeBuildRequest",
     "EpisodeBuildResult",
     "EpisodeBuildStatus",
+    "EpisodePolicyEvaluation",
     "Event",
     "EventSource",
     "EventStore",
@@ -64,21 +77,30 @@ __all__ = [
     "IngestBatch",
     "IngestError",
     "IngestResult",
+    "InvalidRetrievalRequestError",
     "JsonlEventStore",
     "JsonlTraceStore",
     "ManualJsonlIngestAdapter",
     "MemoryState",
+    "PolicyAwareEpisodeRetriever",
+    "PolicyDecisionValue",
+    "PolicyError",
+    "PolicyEvaluationContext",
+    "PolicyGate",
     "OperationTrace",
     "Provenance",
     "RetentionPolicy",
     "RetrievalFilter",
+    "RetrievalPolicyScope",
     "RetrievalRequest",
+    "RetrievalResponse",
     "RetrievalResult",
     "Sensitivity",
     "StorageError",
     "StructuredEpisodeRetriever",
     "TraceStatus",
     "UnknownEventReferenceError",
+    "UnknownPolicyReferenceError",
 ]
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"

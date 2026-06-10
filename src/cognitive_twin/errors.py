@@ -29,3 +29,15 @@ class UnknownEventReferenceError(DomainError):
 
 class StorageError(CognitiveTwinError):
     """Raised when durable storage cannot be read or written safely."""
+
+
+class PolicyError(DomainError):
+    """Raised when policy evaluation cannot complete."""
+
+
+class UnknownPolicyReferenceError(PolicyError):
+    """Raised when policy evaluation references an unknown event_id."""
+
+
+class InvalidRetrievalRequestError(DomainError):
+    """Raised when a retrieval request violates runtime constraints."""

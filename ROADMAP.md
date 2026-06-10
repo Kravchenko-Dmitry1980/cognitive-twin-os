@@ -65,17 +65,28 @@ It does not add transactions, concurrent writer coordination, policy
 enforcement, governed runtime, identity updates, consolidation, or
 semantic/vector retrieval.
 
-## Phase 1.3 - Retrieval API and policy hooks (planned)
+## Phase 1.3 - Policy gate before retrieval
 
 - [x] Retrieval request/response runtime aligned with structured filters
-- [ ] Policy check before retrieval (read consent/sensitivity)
-- [ ] Episode listing pagination
+- [x] `PolicyGate` evaluates sensitivity and consent_basis from referenced events
+- [x] `PolicyAwareEpisodeRetriever`: filter → policy → pagination
+- [x] Conservative defaults: private/sensitive denied; imported consent denied
+- [x] Pagination (`limit` default 50, max 100; `offset` >= 0) after policy filter
+- [x] `policy_retrieve_episodes` operation traces without sensitive payload
+- [x] Package version bumped to `0.1.4`
 
-## Phase 2 - Policy and governance runtime
+**FACT:** Phase 1.3 is local policy enforcement only. No production IAM,
+relationship-based access control, retention jobs, or deletion workflows.
 
-- [ ] Policy engine implementation: consent, sensitivity, retention
-- [ ] Audit log for policy decisions
-- [ ] Retention job stubs
+**DESIGN DECISION:** Policy filtering runs before pagination so denied episodes
+do not consume result slots.
+
+## Phase 2 - Governance hardening
+
+- [ ] Retention policy enforcement jobs
+- [ ] Deletion and archive workflows
+- [ ] Relationship-based access control
+- [ ] Audit log enrichment beyond operation traces
 
 ## Phase 3 - Consolidation
 
