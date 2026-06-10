@@ -12,8 +12,8 @@
     "resource_type": { "type": "string", "minLength": 1 },
     "resource_id": { "type": "string", "minLength": 1 },
     "proposed_sensitivity": {
-      "type": "string",
-      "enum": ["public", "internal", "private", "sensitive"]
+      "type": ["string", "null"],
+      "enum": ["public", "internal", "private", "sensitive", null]
     },
     "context": { "type": "object" }
   }

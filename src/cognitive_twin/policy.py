@@ -12,11 +12,11 @@ from cognitive_twin.events import Governance, Sensitivity
 class PolicyRequest(BaseModel):
     """Request to evaluate governance policy for an action or resource."""
 
-    request_id: str
-    actor_id: str
-    action: str
-    resource_type: str
-    resource_id: str
+    request_id: str = Field(min_length=1)
+    actor_id: str = Field(min_length=1)
+    action: str = Field(min_length=1)
+    resource_type: str = Field(min_length=1)
+    resource_id: str = Field(min_length=1)
     proposed_sensitivity: Sensitivity | None = None
     context: dict[str, Any] = Field(default_factory=dict)
 

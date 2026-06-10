@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://cognitive-twin.local/contracts/memory/retrieval_response.schema.json",
-  "title": "RetrievalResponse",
+  "title": "StructuredRetrievalResponse",
   "type": "object",
-  "required": ["request_id", "episode_ids", "events", "provenance_note"],
+  "required": ["request_id", "episode_ids", "episodes"],
   "additionalProperties": false,
   "properties": {
     "request_id": { "type": "string", "minLength": 1 },
@@ -11,10 +11,9 @@
       "type": "array",
       "items": { "type": "string", "minLength": 1 }
     },
-    "events": {
+    "episodes": {
       "type": "array",
-      "items": { "$ref": "../events/event.schema.json" }
-    },
-    "provenance_note": { "type": "string" }
+      "items": { "$ref": "../events/episode.schema.json" }
+    }
   }
 }

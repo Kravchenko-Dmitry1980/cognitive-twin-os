@@ -37,4 +37,5 @@ Thumbs.db
 
 # Local runtime data (not source of truth)
 data/runtime/
+local_data/*.jsonl
 *.log

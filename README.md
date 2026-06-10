@@ -11,7 +11,18 @@ Phase 0/1 delivers:
 - Product and architecture documentation
 - JSON contracts and Pydantic v2 models
 - In-memory event/episode store
+- JSONL event/episode persistence for local durable runtime state
+- JSONL operation traces for audit-oriented observability
+- Import/export utilities for events and episodes
 - Contract tests and CI
+- Full JSON Schema coverage for every contract file
+
+Phase 1.2 adds:
+
+- JSONL ingest adapter (validation only, no interpretation)
+- Deterministic episode builder from explicit event_ids
+- Structured retrieval filters (no vector search, no LLM)
+- Operation traces for ingest, build, and retrieval
 
 ## What this project is not
 
@@ -38,10 +49,13 @@ Cognitive Twin OS treats **events** (atomic facts with provenance) and **episode
 |----------|--------------|
 | Event & episode schemas | FastAPI / HTTP API |
 | Pydantic models | PostgreSQL / SQLAlchemy |
-| In-memory EventStore | Vector search |
-| JSON Schema contracts | LLM providers |
-| Policy/decision contract stubs | Consolidation engine |
-| pytest + ruff + CI | UI |
+| In-memory and JSONL EventStore | Vector search |
+| JSONL ingest adapter | LLM providers |
+| Deterministic episode builder | Consolidation engine |
+| Structured retrieval filters | Identity updates |
+| JSON Schema contracts | UI |
+| Policy/decision contract stubs | FastAPI / HTTP API |
+| pytest + ruff + CI | PostgreSQL / SQLAlchemy |
 
 See [ROADMAP.md](ROADMAP.md) for future phases.
 
@@ -65,8 +79,99 @@ contracts/     JSON Schema contracts (source of truth for interchange)
 docs/          Architecture, memory model, evaluation plan
 src/           cognitive_twin Python package
 tests/         Model, store, and schema contract tests
+local_data/    Local runtime JSONL files, ignored by git
 DATA/          Background research only — not runtime dependency
 ```
+
+## Phase 1.1 Durable Local Memory Foundation
+
+**FACT:** Phase 1.1 adds local reproducible durability without introducing a
+server, database, vector index, LLM provider, or UI.
+
+**DESIGN DECISION:** JSONL is used because each record remains human-readable,
+append-only, fixture-friendly, and easy to validate through Pydantic models and
+JSON Schema contracts.
+
+Runtime data belongs under `local_data/*.jsonl` and is ignored by git. Committed
+examples should live only under explicit fixtures or examples paths.
+
+Memory lifecycle remains controlled:
+
+```text
+Event -> Episode -> OperationTrace -> future consolidation
+```
+
+Traces record operations and outcomes. They do not automatically become memory,
+beliefs, preferences, skills, or identity signals.
+
+## Phase 1.2 Ingest, Episode Builder, Retrieval
+
+**FACT:** Ingest validates events from JSONL and appends accepted records to a
+repository. It does not interpret content or update identity.
+
+**FACT:** The episode builder groups validated events into episodes using
+caller-supplied `summary`, `episode_type`, and `salience`. Event order is
+deterministic (sorted by timestamp). No semantic generation or consolidation.
+
+**FACT:** Retrieval applies explicit filters (`episode_type`, `memory_state`,
+`min_salience`, `entity`, `goal`, time range). No embeddings, ranking models,
+or LLM.
+
+```text
+JSONL -> IngestAdapter -> EventStore -> EpisodeBuilder -> EpisodeStore
+                                              |
+                                    StructuredEpisodeRetriever
+```
+
+## Release 0.1.2 — Store snapshot semantics
+
+**DESIGN DECISION:** Domain models are treated as immutable snapshots after
+persistence. Stores use `model_copy(deep=True)` on write and on read — not
+global frozen Pydantic models.
+
+`InMemoryEventStore` and `JsonlEventStore` behave consistently: callers never
+receive mutable internal references.
+
+**FACT:** `export_events_to_jsonl` and `export_episodes_to_jsonl` open the
+target file in write mode (`"w"`) and overwrite existing content.
+
+**FACT:** Policy fields (`sensitivity`, `consent_basis`, `retention_policy`) are
+structurally validated on events. Policy **enforcement** is Phase 1.3.
+
+**FACT:** This release does not claim a governed production runtime. No identity
+update, no consolidation, no LLM, no vector search.
+
+## Release 0.1.3 - Snapshot and contract consistency
+
+**ROOT CAUSE:** Phase 1.2 had runtime behavior for JSONL stores, traces, and
+structured retrieval, but tests and docs did not fully prove every persisted
+contract boundary.
+
+**DESIGN DECISION:** Release 0.1.3 keeps the local library architecture and
+adds coverage instead of introducing a database, API framework, LLM provider,
+or vector retrieval stack.
+
+**FACT:** JSONL event, episode, and trace reload paths reject duplicate
+persisted ids.
+
+**FACT:** JSONL stores preserve file append order when listing records after
+reload.
+
+**FACT:** Corrupted JSONL behavior is explicit: malformed JSON and non-object
+records raise `StorageError` with file and line context.
+
+**FACT:** Tests cover every `contracts/**/*.schema.json` file and verify that
+Phase 1 runtime payloads serialize into matching schemas.
+
+**FACT:** Dependency boundary tests reject forbidden runtime dependencies:
+LLM SDKs, agent frameworks, vector DB clients, web/API frameworks, database
+ORMs, and network HTTP clients.
+
+**FACT:** This release still does not implement transactions, concurrent
+writer coordination, policy enforcement, governed runtime, identity update,
+consolidation, or semantic/vector retrieval.
+
+Current package version: **0.1.3** (Phase 1.1 + 1.2 stabilization).
 
 ## Documentation
 

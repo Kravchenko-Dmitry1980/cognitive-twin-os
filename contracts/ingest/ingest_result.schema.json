@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cognitive-twin.local/contracts/ingest/ingest_result.schema.json",
+  "title": "IngestResult",
+  "type": "object",
+  "required": ["batch_id", "accepted_event_ids", "rejected", "total_records"],
+  "additionalProperties": false,
+  "properties": {
+    "batch_id": { "type": "string", "minLength": 1 },
+    "accepted_event_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "rejected": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/IngestError" }
+    },
+    "total_records": { "type": "integer", "minimum": 0 }
+  },
+  "$defs": {
+    "IngestError": {
+      "type": "object",
+      "required": ["line_number", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "line_number": { "type": "integer", "minimum": 1 },
+        "reason": { "type": "string", "minLength": 1 },
+        "event_id": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

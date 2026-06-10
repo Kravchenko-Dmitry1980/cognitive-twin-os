@@ -1,22 +1,31 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://cognitive-twin.local/contracts/memory/retrieval_request.schema.json",
-  "title": "RetrievalRequest",
+  "title": "StructuredRetrievalRequest",
   "type": "object",
-  "required": ["request_id", "actor_id", "query", "memory_states", "limit"],
+  "required": ["request_id", "filters"],
   "additionalProperties": false,
   "properties": {
     "request_id": { "type": "string", "minLength": 1 },
-    "actor_id": { "type": "string", "minLength": 1 },
-    "query": { "type": "string" },
-    "memory_states": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "enum": ["raw", "curated", "consolidated", "archived", "invalidated"]
+    "filters": { "$ref": "#/$defs/RetrievalFilter" },
+    "actor_id": { "type": ["string", "null"] }
+  },
+  "$defs": {
+    "RetrievalFilter": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "episode_type": { "type": ["string", "null"] },
+        "memory_state": {
+          "type": ["string", "null"],
+          "enum": ["raw", "curated", "consolidated", "archived", "invalidated", null]
+        },
+        "min_salience": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "entity": { "type": ["string", "null"] },
+        "goal": { "type": ["string", "null"] },
+        "created_after": { "type": ["string", "null"], "format": "date-time" },
+        "created_before": { "type": ["string", "null"], "format": "date-time" }
       }
-    },
-    "limit": { "type": "integer", "minimum": 1, "maximum": 100 },
-    "filters": { "type": "object" }
+    }
   }
 }

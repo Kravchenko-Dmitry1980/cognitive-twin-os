@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cognitive-twin.local/contracts/traces/operation_trace.schema.json",
+  "title": "OperationTrace",
+  "type": "object",
+  "required": [
+    "trace_id",
+    "operation",
+    "timestamp",
+    "input_refs",
+    "output_refs",
+    "status",
+    "metadata"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "trace_id": { "type": "string", "minLength": 1 },
+    "operation": { "type": "string", "minLength": 1 },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "actor_id": { "type": ["string", "null"] },
+    "input_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "output_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "policy_result": {
+      "type": ["object", "null"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["started", "succeeded", "failed", "skipped"]
+    },
+    "error": { "type": ["string", "null"] },
+    "metadata": { "type": "object" }
+  }
+}

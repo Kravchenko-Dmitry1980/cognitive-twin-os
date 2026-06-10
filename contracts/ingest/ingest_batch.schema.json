@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cognitive-twin.local/contracts/ingest/ingest_batch.schema.json",
+  "title": "IngestBatch",
+  "type": "object",
+  "required": ["batch_id", "source_path"],
+  "additionalProperties": false,
+  "properties": {
+    "batch_id": { "type": "string", "minLength": 1 },
+    "source_path": { "type": "string", "minLength": 1 },
+    "actor_id": { "type": ["string", "null"] }
+  }
+}

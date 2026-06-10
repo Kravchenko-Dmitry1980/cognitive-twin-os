@@ -6,6 +6,7 @@ import pytest
 
 from cognitive_twin.hashing import compute_content_hash
 from cognitive_twin.store import (
+    DuplicateEpisodeError,
     DuplicateEventError,
     EventStore,
     UnknownEventReferenceError,
@@ -24,8 +25,8 @@ def test_list_events() -> None:
     store = EventStore()
     store.append_event(make_event("evt_a"))
     store.append_event(make_event("evt_b"))
-    ids = {e.event_id for e in store.list_events()}
-    assert ids == {"evt_a", "evt_b"}
+    ids = [e.event_id for e in store.list_events()]
+    assert ids == ["evt_a", "evt_b"]
 
 
 def test_duplicate_event_id_raises() -> None:
@@ -48,6 +49,14 @@ def test_episode_unknown_event_ids_raises() -> None:
     episode = make_episode(["evt_missing"], "ep_bad")
     with pytest.raises(UnknownEventReferenceError, match="evt_missing"):
         store.append_episode(episode)
+
+
+def test_duplicate_episode_id_raises() -> None:
+    store = EventStore()
+    store.append_event(make_event("evt_1"))
+    store.append_episode(make_episode(["evt_1"], "ep_dup"))
+    with pytest.raises(DuplicateEpisodeError, match="ep_dup"):
+        store.append_episode(make_episode(["evt_1"], "ep_dup"))
 
 
 def test_list_episodes() -> None:

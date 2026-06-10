@@ -25,11 +25,12 @@ def make_event(
     event_id: str = "evt_test001",
     payload: dict | None = None,
     metadata: dict | None = None,
+    timestamp: datetime | None = None,
 ) -> Event:
     payload = payload or {"text": "hello"}
     metadata = metadata or {"channel": "test"}
     content_hash = compute_content_hash(payload, metadata)
-    now = datetime(2026, 6, 9, 12, 0, 0, tzinfo=UTC)
+    now = timestamp or datetime(2026, 6, 9, 12, 0, 0, tzinfo=UTC)
     return Event(
         event_id=event_id,
         source=EventSource(type="chat", source_id="src_chat01"),
