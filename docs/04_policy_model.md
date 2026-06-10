@@ -39,8 +39,20 @@ event denies, the episode is denied.
 future use; Phase 1.3 implements allow/deny only).
 
 Denied episodes are not returned in `RetrievalResponse.items`. When
-`include_policy_decisions` is true, denied entries include `episode_id` and
-`reason_code` only — no episode payload.
+`include_policy_decisions` is true, decisions include `episode_id`, `decision`,
+and generic `reason_code` only — no `denied_reason`, no event_id, no governance
+classification in external payloads. When `include_policy_decisions` is false,
+`policy_decisions` is `null`; counts (`total_denied`, etc.) still reported.
+
+### Generic reason codes (external)
+
+| reason_code | Meaning |
+|-------------|---------|
+| `allowed` | Episode passed policy gate |
+| `access_denied` | Sensitivity not in allowed scope |
+| `consent_not_allowed` | Imported consent not allowed |
+| `unknown_reference` | Reserved for reference errors |
+| `policy_error` | Reserved for policy failures |
 
 ## Policy evaluation flow
 
@@ -84,16 +96,21 @@ Operation: `policy_retrieve_episodes`
 | Field | Content |
 |-------|---------|
 | `policy_result` | `{ total_candidates, total_allowed, total_denied }` |
-| `metadata` | request id, counts, offset, limit, filter keys |
-| Must not include | event payloads, sensitive text |
+| `metadata` | counts, offset, limit, `filter_keys`, `policy_decision_counts`, `operation_version` |
+| `output_refs` | allowed returned episode ids only |
+| Must not include | filter values, entity/goal strings, event payloads, episode summaries, denied_reason |
 
 ## Phase status
 
 | Phase | Status |
 |-------|--------|
 | 0/1 | Pydantic models + JSON schemas |
-| 1.3 | `PolicyGate`, `PolicyAwareEpisodeRetriever` for retrieval |
-| 2+ | Retention jobs, deletion workflows, production IAM |
+| 1.3 / 0.1.4 | Shipped: `PolicyGate`, `PolicyAwareEpisodeRetriever` (public retrieval boundary) |
+| 2+ | Retention enforcement, deletion/archive workflows, RBAC, audit enrichment |
+
+**FACT:** Release 0.1.4 implements a local minimal policy gate before retrieval.
+This is not production IAM, not a governed production runtime, and does not
+include retention jobs, deletion workflows, or relationship-based access control.
 
 ## Design constraints
 

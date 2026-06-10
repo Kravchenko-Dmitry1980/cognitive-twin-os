@@ -14,7 +14,7 @@
 ┌─────────────────────────────────────────────────────────────┐
 │                    Decision API (placeholder)                  │
 ├─────────────────────────────────────────────────────────────┤
-│                    Retrieval Layer (placeholder)               │
+│         Retrieval Layer (PolicyAwareEpisodeRetriever)          │
 ├─────────────────────────────────────────────────────────────┤
 │              Policy / Governance Layer                         │
 ├─────────────────────────────────────────────────────────────┤
@@ -79,13 +79,14 @@ relationship-based access control, not retention job execution.
 
 ### Retrieval layer
 
-Phase 1.2: `StructuredEpisodeRetriever` filters episodes by explicit fields
-(`episode_type`, `memory_state`, `min_salience`, `entity`, `goal`, time range).
-No vector search, ranking model, or LLM.
+Phase 1.2 introduced structured candidate selection via `filter_episodes` (internal).
 
-Phase 1.3: `PolicyAwareEpisodeRetriever` runs structured filter → policy gate →
-pagination. Denied episodes are excluded from `items`; `policy_decisions` may
-include episode id and reason code only.
+Phase 1.3: `PolicyAwareEpisodeRetriever` is the only release-facing retrieval
+API. Flow: internal `filter_episodes` → `PolicyGate` → pagination. Denied
+episodes are excluded from `items`. External `policy_decisions` expose
+`episode_id`, `decision`, and generic `reason_code` only.
+
+No vector search, ranking model, or LLM.
 
 ### Decision API (placeholder)
 
@@ -123,7 +124,7 @@ service.
 | Domain Layer | `Event`, `Episode`, `OperationTrace`, explicit errors |
 | Application Layer | Import/export functions in `cognitive_twin.io` |
 | Infrastructure Layer | `InMemoryEventStore`, `JsonlEventStore`, `JsonlTraceStore` |
-| Orchestration Layer | `ManualJsonlIngestAdapter`, `DeterministicEpisodeBuilder`, `StructuredEpisodeRetriever`, `PolicyAwareEpisodeRetriever` |
+| Orchestration Layer | `ManualJsonlIngestAdapter`, `DeterministicEpisodeBuilder`, `PolicyAwareEpisodeRetriever` (`filter_episodes` internal) |
 | Interface Layer | JSON Schema contracts under `contracts/` |
 
 ## ROOT CAUSE
@@ -154,7 +155,8 @@ production serving.
 
 - Concurrent writers can interleave records; this is out of scope for Phase 1.1.
 - Large files will require indexing or database-backed repositories later.
-- Trace logs improve observability but are not a policy engine.
+- Trace logs improve observability; the 0.1.4 policy gate is local and minimal,
+  not a production policy engine.
 
 ## TEST RESULTS
 
@@ -172,11 +174,10 @@ pytest -q
 |-----------|-----------|-------------------|
 | Ingest JSONL | `ManualJsonlIngestAdapter` | `ingest_batch` |
 | Build episode | `DeterministicEpisodeBuilder` | `build_episode` |
-| Filter episodes | `StructuredEpisodeRetriever` | `retrieve_episodes` |
 | Policy retrieval | `PolicyAwareEpisodeRetriever` | `policy_retrieve_episodes` |
 
-Trace metadata stays minimal: batch/request ids, counts, and filter keys. Policy
-retrieval traces must not include event payloads or sensitive content.
+Trace metadata stays minimal: counts, ids, and `filter_keys` only — never filter
+values, entity/goal strings, event payloads, or episode summaries.
 
 ## Import/export semantics
 

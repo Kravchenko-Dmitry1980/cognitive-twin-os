@@ -18,8 +18,10 @@ Measure whether the cognitive twin improves decision quality and memory continui
 | Ingest validation | Accept valid JSONL, reject invalid/duplicate records |
 | Episode build determinism | Timestamp ordering, no event mutation |
 | Structured retrieval | Filters by memory_state, salience, entity, goal, time |
-| Policy gate | Sensitivity/consent deny/allow; unknown event_id fails clearly |
-| Policy-aware retrieval | Denied episodes excluded; pagination after policy filter |
+| Policy gate | Sensitivity/consent deny/allow; generic reason_code only externally |
+| Policy-aware retrieval | Public API only; denied episodes excluded; pagination after policy |
+| Release API boundary | Package root does not export policy-less retriever |
+| Trace safety | filter_keys in metadata; no entity/goal/payload leak |
 | Operation traces | ingest/build/retrieval/policy_retrieve emit trace records |
 | Store snapshot isolation | Mutation of returned models does not affect stored state |
 | Episode schema compliance | Valid episode passes; missing `event_ids` / invalid `memory_state` fail |
@@ -111,7 +113,7 @@ Automated tests in `tests/test_ingest.py`, `tests/test_episode_builder.py`, and
 - invalid ingest records with clear rejection reasons
 - deterministic episode build and unknown `event_id` failure
 - episode build does not mutate events
-- structured retrieval filters and trace emission
+- internal `filter_episodes` candidate selection (not release-facing API)
 
 ## Release 0.1.2 quality gates
 
@@ -125,20 +127,27 @@ Automated snapshot tests live in `tests/test_store_snapshots.py`.
 
 **FACT:** Passing tests do not imply a governed production runtime.
 
-## Phase 1.3 test coverage
+## Phase 1.3 / Release 0.1.4 test coverage
 
-Automated tests in `tests/test_policy_engine.py` and
-`tests/test_policy_retrieval.py` cover:
+Automated tests in `tests/test_policy_engine.py`, `tests/test_policy_retrieval.py`,
+and `tests/test_release_api.py` cover:
 
 - conservative default deny for private/sensitive/imported consent
 - explicit allow when policy scope permits
 - mixed-sensitivity episodes (most restrictive event wins)
 - unknown `event_id` during policy evaluation fails clearly
 - policy filtering before pagination
-- denied episodes excluded from items without payload leak
-- `policy_retrieve_episodes` trace emission without sensitive metadata
+- denied episodes excluded from items; external `reason_code` only
+- `include_policy_decisions=false` suppresses per-episode decisions
+- package root does not export policy-less retriever
+- `retrieval_response.schema.json` rejects legacy response shape
+- `policy_retrieve_episodes` trace metadata: `filter_keys` without filter values
+- expanded forbidden dependency denylist
+
+Current quality gate: `138` tests, `ruff check .`, `pytest -q`.
 
 ## NEXT ACTIONS
 
-Phase 2 should add policy compliance rate metrics and retention enforcement
-fixtures without adding forbidden dependencies.
+Phase 2 should add retention enforcement, deletion/archive workflows,
+relationship-based access control, and policy compliance rate metrics without
+adding forbidden dependencies.

@@ -123,14 +123,16 @@ repository. It does not interpret content or update identity.
 caller-supplied `summary`, `episode_type`, and `salience`. Event order is
 deterministic (sorted by timestamp). No semantic generation or consolidation.
 
-**FACT:** Retrieval applies explicit filters (`episode_type`, `memory_state`,
-`min_salience`, `entity`, `goal`, time range). No embeddings, ranking models,
-or LLM.
+**FACT:** Phase 1.2 introduced structured candidate filters (`episode_type`,
+`memory_state`, `min_salience`, `entity`, `goal`, time range). In 0.1.4 these
+run internally via `filter_episodes` before the policy gate — not as a
+policy-less public retrieval API.
 
 ```text
 JSONL -> IngestAdapter -> EventStore -> EpisodeBuilder -> EpisodeStore
                                               |
-                                    StructuredEpisodeRetriever
+                              PolicyAwareEpisodeRetriever
+                              (filter_episodes internal stage)
 ```
 
 ## Release 0.1.2 — Store snapshot semantics
@@ -146,7 +148,8 @@ receive mutable internal references.
 target file in write mode (`"w"`) and overwrite existing content.
 
 **FACT:** Policy fields (`sensitivity`, `consent_basis`, `retention_policy`) are
-structurally validated on events. Policy **enforcement** is Phase 1.3.
+structurally validated on events. Runtime policy enforcement was added in
+Release 0.1.4 (Phase 1.3).
 
 **FACT:** This release does not claim a governed production runtime. No identity
 update, no consolidation, no LLM, no vector search.
@@ -183,23 +186,36 @@ consolidation, or semantic/vector retrieval.
 
 ## Release 0.1.4 — Policy gate before retrieval
 
-**FACT:** `PolicyAwareEpisodeRetriever` applies structured filters, evaluates
-each candidate episode against governance of referenced events, then paginates
-allowed results only.
+**FACT:** `PolicyAwareEpisodeRetriever` is the release-facing retrieval
+boundary exported from the package root. Structured filtering remains internal
+candidate selection via `filter_episodes` — not a policy-less public API.
 
-**DESIGN DECISION:** Default policy is conservative: `allowed_sensitivities` is
-`["public", "internal"]`, `allow_imported` is `false`. Denied episodes are
-excluded from `items`; `policy_decisions` may include episode id and reason code
-only.
+**FACT:** `retrieval_response.schema.json` is policy-aware only. The legacy
+structured response is preserved in
+`deprecated_structured_retrieval_response.schema.json` and rejected by the
+active retrieval response contract.
 
-**FACT:** Policy enforcement is local and minimal — not a production governed
-runtime. No relationship-based access control, retention jobs, or deletion
-workflows yet.
+**DESIGN DECISION:** Default policy is conservative:
 
-**FACT:** Traces for policy retrieval record counts and ids only — no event
-payloads or sensitive content in metadata.
+- `private` and `sensitive` episodes are denied by default
+- `imported` `consent_basis` is denied by default unless `allow_imported=true`
+- Pagination (`limit`/`offset`) happens after policy filtering
 
-Current package version: **0.1.4** (Phase 1.3 policy gate).
+Denied episodes are excluded from `items`. External denied decisions expose
+generic `reason_code` only (`allowed`, `access_denied`, `consent_not_allowed`,
+…) — no `denied_reason`, event ids, or governance classification in external
+payloads.
+
+**FACT:** `policy_retrieve_episodes` trace metadata records counts, allowed
+episode ids in `output_refs`, `filter_keys`, and `policy_decision_counts` only.
+Trace metadata must not include filter values, event payloads, episode
+summaries, entity/goal strings, or `denied_reason`.
+
+**FACT:** Local minimal policy gate exists in 0.1.4. This is not production IAM,
+not a governed production runtime, and does not claim relationship-based access
+control, retention enforcement, or deletion workflows (Phase 2+).
+
+Current package version: **0.1.4**
 
 ## Documentation
 

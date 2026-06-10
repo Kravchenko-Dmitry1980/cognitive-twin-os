@@ -76,8 +76,8 @@ policy-aware response metadata.
 
 - `cognitive_twin.episodes.Episode`
 - `cognitive_twin.episode_builder.DeterministicEpisodeBuilder`
-- `cognitive_twin.retrieval.StructuredEpisodeRetriever`
-- `cognitive_twin.policy_retrieval.PolicyAwareEpisodeRetriever`
+- `cognitive_twin.retrieval.filter_episodes` (internal candidate selection)
+- `cognitive_twin.policy_retrieval.PolicyAwareEpisodeRetriever` (release-facing)
 
 ## Policy Contract
 
@@ -97,12 +97,15 @@ Policy requests describe an action on a resource; responses return `allowed`,
 
 ## Retrieval Contract
 
-Phase 1.2: structured filtering via `RetrievalFilter`, `RetrievalResult`,
-`StructuredEpisodeRetriever`.
+Phase 1.3: `retrieval_response.schema.json` is policy-aware only. Legacy
+structured response is preserved in
+`deprecated_structured_retrieval_response.schema.json` but rejected by the
+active retrieval response contract.
 
-Phase 1.3: policy-aware path via `RetrievalRequest` (with `policy`, `limit`,
-`offset`) and `RetrievalResponse` (with `items`, policy counts, optional
-`policy_decisions`, `trace_id`).
+Release-facing path: `RetrievalRequest` (with `policy`, `limit`, `offset`) and
+`RetrievalResponse` (with `items`, policy counts, `policy_decisions`, optional
+`trace_id`). `include_policy_decisions=false` sets `policy_decisions` to null
+while counts remain.
 
 Pagination rules:
 
@@ -182,8 +185,9 @@ promoting traces into identity, beliefs, preferences, skills, or stable memory.
 
 ## TRADE-OFFS
 
-The trace contract is intentionally generic. It avoids premature coupling to a
-future policy engine, orchestrator, API, or database schema.
+The trace contract is intentionally generic. Policy retrieval metadata in 0.1.4
+records counts, ids, and `filter_keys` only — not filter values or sensitive
+content. Full retention enforcement and production IAM remain Phase 2+.
 
 ## RISKS
 
@@ -203,11 +207,10 @@ trace status values.
 |-----------|-------------------|--------------------|
 | Ingest | `ingest_batch` | `batch_id`, `accepted_count`, `rejected_count` |
 | Episode build | `build_episode` | `request_id`, `episode_id`, `event_count` |
-| Retrieval | `retrieve_episodes` | `request_id`, `match_count`, `filters` |
-| Policy retrieval | `policy_retrieve_episodes` | `total_candidates`, `total_allowed`, `total_denied`, `offset`, `limit` |
+| Policy retrieval | `policy_retrieve_episodes` | `total_candidates`, `total_allowed`, `total_denied`, `returned_count`, `offset`, `limit`, `filter_keys`, `policy_decision_counts`, `operation_version` |
 
-Policy retrieval traces must not include event payloads or sensitive content in
-`metadata`.
+Policy retrieval traces must not include filter values, entity/goal strings,
+event payloads, episode summaries, or denied episode ids in `output_refs`.
 
 ## Import/export contract
 

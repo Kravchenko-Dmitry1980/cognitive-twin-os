@@ -129,10 +129,10 @@ not modify source events.
 **DESIGN DECISION:** Raw events do not directly become identity. Ingest validates;
 the builder groups; consolidation and identity updates remain future phases.
 
-## Phase 1.2 structured retrieval
+## Phase 1.2 internal candidate selection
 
-**FACT:** `StructuredEpisodeRetriever` filters episodes by explicit fields only.
-No embeddings, ranking models, or LLM.
+**FACT:** `filter_episodes` selects candidates by explicit fields only. It is
+not a release-facing retrieval API. No embeddings, ranking models, or LLM.
 
 ## Phase 1.3 policy-gated retrieval
 
@@ -144,7 +144,8 @@ episodes only.
 not occupy result slots.
 
 **FACT:** Default policy denies `private`/`sensitive` and `imported` consent.
-Denied episode content is not returned in `items`.
+Denied episode content is not returned in `items`. External policy decisions
+expose generic `reason_code` only (`access_denied`, `consent_not_allowed`, etc.).
 
 ## Release scope (0.1.4)
 

@@ -48,7 +48,8 @@ update identity, or call external services.
 
 **DESIGN DECISION:** Snapshots at store boundary, not frozen domain models.
 
-**FACT:** No governed runtime claim in 0.1.2. Policy enforcement is Phase 1.3.
+**FACT:** No governed runtime claim in 0.1.2. Policy enforcement was deferred
+until Phase 1.3 (shipped in Release 0.1.4).
 
 ## Release 0.1.3 - Snapshot and contract consistency
 
@@ -65,21 +66,33 @@ It does not add transactions, concurrent writer coordination, policy
 enforcement, governed runtime, identity updates, consolidation, or
 semantic/vector retrieval.
 
-## Phase 1.3 - Policy gate before retrieval
+## Phase 1.3 - Policy gate before retrieval (complete)
 
-- [x] Retrieval request/response runtime aligned with structured filters
-- [x] `PolicyGate` evaluates sensitivity and consent_basis from referenced events
-- [x] `PolicyAwareEpisodeRetriever`: filter → policy → pagination
+- [x] Policy check before retrieval (`PolicyGate` on referenced event governance)
+- [x] Episode listing pagination / bounded retrieval (`limit`/`offset` after policy)
+- [x] Policy-aware retrieval response contract (`RetrievalResponse`, policy counts)
+- [x] Safe trace metadata for policy retrieval (`filter_keys`, not filter values)
+- [x] Generic `reason_code` disclosure for external policy decisions
+- [x] `PolicyAwareEpisodeRetriever`: internal `filter_episodes` → policy → pagination
 - [x] Conservative defaults: private/sensitive denied; imported consent denied
-- [x] Pagination (`limit` default 50, max 100; `offset` >= 0) after policy filter
-- [x] `policy_retrieve_episodes` operation traces without sensitive payload
-- [x] Package version bumped to `0.1.4`
+- [x] Package version `0.1.4`
 
-**FACT:** Phase 1.3 is local policy enforcement only. No production IAM,
-relationship-based access control, retention jobs, or deletion workflows.
+**FACT:** Phase 1.3 delivers a local minimal policy gate — not production IAM or
+a governed production runtime.
 
 **DESIGN DECISION:** Policy filtering runs before pagination so denied episodes
 do not consume result slots.
+
+## Release 0.1.4 - Policy gate release-safe
+
+- [x] Closed public policy-less retrieval boundary (`PolicyAwareEpisodeRetriever` only)
+- [x] Removed legacy retrieval response from active `retrieval_response.schema.json`
+- [x] Hardened trace metadata against filter-value leaks
+- [x] Hardened external policy decisions to `reason_code` only
+- [x] Expanded forbidden dependency denylist (redis, celery, kafka, neo4j, psycopg*, …)
+
+**FACT:** Retention enforcement, deletion/archive workflows, relationship-based
+access control, and audit enrichment beyond traces remain Phase 2+.
 
 ## Phase 2 - Governance hardening
 
